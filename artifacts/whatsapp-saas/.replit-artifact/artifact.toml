@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "WhatsApp Session Cloud"
+description = "A multi-tenant control center for securely connecting, monitoring, and managing multiple linked WhatsApp accounts from one dashboard."
+version = "1.0.0"
+id = "artifacts/whatsapp-saas"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20772
+
+[services.development]
+run = "pnpm --filter @workspace/whatsapp-saas run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/whatsapp-saas", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/whatsapp-saas/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20772"
+BASE_PATH = "/"

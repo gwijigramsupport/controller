@@ -1,6 +1,6 @@
-# [Project name]
+# WhatsApp Session Cloud
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Multi-tenant control center for securely pairing, monitoring, and operating multiple linked WhatsApp accounts.
 
 ## Run & Operate
 
@@ -22,15 +22,21 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/whatsapp-saas` — React dashboard, public landing page, Clerk sign-in, and session operations UI.
+- `artifacts/api-server` — Express API, Clerk middleware, per-session WhatsApp worker manager, and protected routes.
+- `lib/api-spec/openapi.yaml` — source of truth for dashboard/session API contracts.
+- `lib/db/src/schema` — Drizzle schema for tenant-scoped sessions and activity events.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Clerk owns browser authentication; API routes derive the tenant from the Clerk user ID and never accept an owner ID from the client.
+- Each WhatsApp account is isolated by an owner/session key and gets its own Baileys socket plus filesystem auth directory.
+- PostgreSQL stores session metadata and activity; WhatsApp credentials stay in the per-session auth directory and are never returned by the API.
+- OpenAPI is the contract source; generated React Query hooks and Zod schemas are used by the dashboard and API.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+Users can create isolated WhatsApp sessions, request pairing codes, connect or stop workers, log out device credentials, delete sessions, and review fleet health and activity.
 
 ## User preferences
 
@@ -38,7 +44,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`.
+- The dashboard is tenant-protected; unauthenticated visitors see the landing page and must sign in before the API returns session data.
+- Baileys session directories should be backed by persistent storage before production scale-out; the current manager is process-local and intended as the first operational foundation.
 
 ## Pointers
 

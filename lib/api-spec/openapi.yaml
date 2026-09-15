@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Tenant dashboard operations
+  - name: sessions
+    description: WhatsApp linked-device sessions
+  - name: activity
+    description: Session activity timeline
 paths:
   /healthz:
     get:
@@ -24,7 +30,200 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Get dashboard overview
+      description: Returns tenant-level counts and recent operational activity.
+      responses:
+        "200":
+          description: Dashboard overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: List WhatsApp sessions
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, connected, connecting, disconnected, logged_out, error]
+            default: all
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Session list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WhatsAppSession"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create a WhatsApp session
+      description: Creates an isolated session record ready for pairing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionInput"
+      responses:
+        "201":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+  /sessions/{sessionId}:
+    get:
+      operationId: getSession
+      tags: [sessions]
+      summary: Get a WhatsApp session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete a WhatsApp session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "204":
+          description: Session deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /sessions/{sessionId}/pairing-code:
+    post:
+      operationId: requestPairingCode
+      tags: [sessions]
+      summary: Request a device pairing code
+      description: Starts the session connection and returns a short-lived pairing code.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PairingCodeInput"
+      responses:
+        "200":
+          description: Pairing code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PairingCodeResponse"
+        "409":
+          description: Session cannot request a code in its current state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /sessions/{sessionId}/connect:
+    post:
+      operationId: connectSession
+      tags: [sessions]
+      summary: Start a session worker
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+  /sessions/{sessionId}/disconnect:
+    post:
+      operationId: disconnectSession
+      tags: [sessions]
+      summary: Stop a session worker without deleting credentials
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+  /sessions/{sessionId}/logout:
+    post:
+      operationId: logoutSession
+      tags: [sessions]
+      summary: Log a WhatsApp device out and clear its credentials
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WhatsAppSession"
+  /activity:
+    get:
+      operationId: listActivity
+      tags: [activity]
+      summary: List recent session activity
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
 components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +232,142 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    SessionStatus:
+      type: string
+      enum: [connected, connecting, disconnected, logged_out, error]
+    SessionInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        phoneNumber:
+          type: string
+          description: WhatsApp number in international format, used only to request pairing.
+          minLength: 8
+          maxLength: 20
+      required: [name]
+    PairingCodeInput:
+      type: object
+      properties:
+        phoneNumber:
+          type: string
+          description: WhatsApp number in international format.
+          minLength: 8
+          maxLength: 20
+      required: [phoneNumber]
+    WhatsAppSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phoneNumber:
+          type: ["string", "null"]
+        displayNumber:
+          type: ["string", "null"]
+        profileName:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        lastSeenAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messageCount:
+          type: integer
+        errorMessage:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - phoneNumber
+        - displayNumber
+        - profileName
+        - status
+        - lastSeenAt
+        - createdAt
+        - updatedAt
+        - messageCount
+        - errorMessage
+    PairingCodeResponse:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        code:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+      required: [sessionId, code, expiresAt, status]
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: ["string", "null"]
+          format: uuid
+        sessionName:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [session_connected, session_created, session_disconnected, session_logged_out, session_error, message_received]
+        title:
+          type: string
+        detail:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, sessionId, sessionName, type, title, detail, createdAt]
+    DashboardSummary:
+      type: object
+      properties:
+        totalSessions:
+          type: integer
+        connectedSessions:
+          type: integer
+        attentionSessions:
+          type: integer
+        messagesToday:
+          type: integer
+        uptimePercent:
+          type: number
+          format: double
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WhatsAppSession"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityEvent"
+      required:
+        - totalSessions
+        - connectedSessions
+        - attentionSessions
+        - messagesToday
+        - uptimePercent
+        - sessions
+        - recentActivity
 

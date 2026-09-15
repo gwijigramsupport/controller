@@ -1,0 +1,1 @@
+- [WhatsApp session runtime](whatsapp-session-runtime.md) — Baileys runtime dependencies must be verified by starting the bundled API, not only by typechecking.
