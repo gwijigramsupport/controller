@@ -17,7 +17,6 @@ node_modules
 .classpath
 .c9/
 *.launch
-.settings/
 *.sublime-workspace
 
 # IDE - VSCode
@@ -46,4 +45,3 @@ Thumbs.db
 
 # Replit
 .cache/
-.local/
